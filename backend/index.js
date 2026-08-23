@@ -194,6 +194,17 @@ app.use(bodyParser.json());
 //   res.send("Done !");
 // });
 
+app.get("/", (req, res) => {
+  res.send("Stock Trading Backend is running!");
+});
+
+app.get("/test", (req, res) => {
+  res.json({
+    message: "Backend routes are working",
+    holdingsRoute: "/allHoldings",
+    positionsRoute: "/allPositions"
+  });
+});
 
 app.get('/allHoldings', async(req, res) => {
   let allHoldings = await HoldingsModel.find({});
