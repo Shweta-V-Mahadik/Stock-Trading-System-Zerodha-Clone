@@ -1,6 +1,9 @@
 require("dotenv").config();
 
 const express = require("express");
+console.log("===== STOCK TRADING BACKEND v2 =====");
+console.log("Routes: /allHoldings and /allPositions");
+
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const cors = require("cors")
@@ -309,8 +312,14 @@ app.get('/me', verifyToken, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log("App started !");
-  mongoose.connect(uri);
-  console.log("Db connected");
-});
+mongoose.connect(uri)
+  .then(() => {
+    console.log("MongoDB connected successfully");
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("MongoDB connection failed:", err);
+  });
