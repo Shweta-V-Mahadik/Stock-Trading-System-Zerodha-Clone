@@ -3,27 +3,7 @@ import api from "../services/api";
 
 const Summary = () => {
   const [username, setUsername] = useState(() => {
-    // Check URL parameters first
-    const params = new URLSearchParams(window.location.search);
-    const tokenFromUrl = params.get("token");
-    const userFromUrl = params.get("user");
-
-    if (tokenFromUrl) {
-      localStorage.setItem("token", tokenFromUrl);
-    }
-
-    if (userFromUrl) {
-      try {
-        const decodedUser = JSON.parse(decodeURIComponent(userFromUrl));
-        localStorage.setItem("user", JSON.stringify(decodedUser));
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return decodedUser.username || decodedUser.name || "User";
-      } catch (e) {
-        console.error("Error parsing user from URL:", e);
-      }
-    }
-
-    // Fallback to localStorage
+    // Check initial user from localStorage
     try {
       const stored = localStorage.getItem("user");
       if (stored) {
@@ -37,23 +17,64 @@ const Summary = () => {
   });
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      try {
-        const res = await api.get("/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.data && res.data.user && res.data.user.username) {
-          setUsername(res.data.user.username);
-          localStorage.setItem("user", JSON.stringify(res.data.user));
+    const handleAuthHandoffAndFetchUser = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const tokenFromUrl = params.get("token");
+      const userFromUrl = params.get("user");
+
+      if (code) {
+        try {
+          const res = await api.post("/auth/verify-handoff", { code });
+          if (res.data && res.data.success && res.data.token) {
+            localStorage.setItem("token", res.data.token);
+            if (res.data.user) {
+              localStorage.setItem("user", JSON.stringify(res.data.user));
+              setUsername(res.data.user.username || res.data.user.name || "User");
+              window.dispatchEvent(new Event("user-updated"));
+            }
+          }
+        } catch (err) {
+          console.error("Error verifying handoff code:", err);
+        } finally {
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
-      } catch (err) {
-        console.error("Error fetching logged in user info:", err);
+      } else if (tokenFromUrl || userFromUrl) {
+        if (tokenFromUrl) {
+          localStorage.setItem("token", tokenFromUrl);
+        }
+        if (userFromUrl) {
+          try {
+            const decodedUser = JSON.parse(decodeURIComponent(userFromUrl));
+            localStorage.setItem("user", JSON.stringify(decodedUser));
+            setUsername(decodedUser.username || decodedUser.name || "User");
+            window.dispatchEvent(new Event("user-updated"));
+          } catch (e) {
+            console.error("Error parsing user from URL:", e);
+          }
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      // Refresh logged in user profile if token present
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const res = await api.get("/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.data && res.data.user && res.data.user.username) {
+            setUsername(res.data.user.username);
+            localStorage.setItem("user", JSON.stringify(res.data.user));
+            window.dispatchEvent(new Event("user-updated"));
+          }
+        } catch (err) {
+          console.error("Error fetching logged in user info:", err);
+        }
       }
     };
 
-    fetchUser();
+    handleAuthHandoffAndFetchUser();
   }, []);
 
   return (

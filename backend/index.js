@@ -13,6 +13,7 @@ const uri = process.env.MONGODB_URI;
 
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const { HoldingsModel } = require("./model/HoldingsModel");
 const { PositionsModel } = require("./model/PositionsModel");
 const { OrdersModel } = require("./model/OrdersModel");
@@ -22,6 +23,19 @@ const app = express();
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// In-memory store for short-lived, single-use auth handoff codes
+const handoffStore = new Map();
+
+// Periodic cleanup of expired handoff codes (older than 60s)
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, data] of handoffStore.entries()) {
+    if (data.expiresAt < now) {
+      handoffStore.delete(code);
+    }
+  }
+}, 30000);
 
 // app.get("/addHoldings", async (req, res) => {
 //   let tempHoldings = [
@@ -320,6 +334,60 @@ app.get('/me', verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Verify user error:", error);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// Endpoint to create a short-lived single-use handoff code for redirecting to dashboard
+app.post('/auth/create-handoff', (req, res) => {
+  try {
+    const { token, user } = req.body;
+    if (!token || !user) {
+      return res.status(400).json({ success: false, message: "Token and user are required" });
+    }
+
+    const code = crypto.randomBytes(32).toString("hex");
+    handoffStore.set(code, {
+      token,
+      user,
+      expiresAt: Date.now() + 60000, // Valid for 60 seconds
+    });
+
+    res.status(200).json({ success: true, code });
+  } catch (error) {
+    console.error("Create handoff error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Endpoint to exchange a short-lived handoff code for authentication details
+app.post('/auth/verify-handoff', (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      return res.status(400).json({ success: false, message: "Code is required" });
+    }
+
+    const handoffData = handoffStore.get(code);
+    if (!handoffData) {
+      return res.status(400).json({ success: false, message: "Invalid or expired handoff code" });
+    }
+
+    if (handoffData.expiresAt < Date.now()) {
+      handoffStore.delete(code);
+      return res.status(400).json({ success: false, message: "Handoff code expired" });
+    }
+
+    // Single-use: delete immediately after verification
+    handoffStore.delete(code);
+
+    res.status(200).json({
+      success: true,
+      token: handoffData.token,
+      user: handoffData.user,
+    });
+  } catch (error) {
+    console.error("Verify handoff error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
 

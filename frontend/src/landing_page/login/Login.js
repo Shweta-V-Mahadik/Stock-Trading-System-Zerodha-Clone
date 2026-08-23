@@ -65,11 +65,33 @@ function Login() {
           localStorage.setItem('user', JSON.stringify(response.data.user));
         }
 
+        let code = null;
+        try {
+          const handoffRes = await api.post('/auth/create-handoff', {
+            token: response.data.token,
+            user: response.data.user,
+          });
+          if (handoffRes.data && handoffRes.data.success) {
+            code = handoffRes.data.code;
+          }
+        } catch (handoffErr) {
+          console.error('Error creating auth handoff code:', handoffErr);
+        }
+
         setTimeout(() => {
-          const tokenParam = response.data.token ? `token=${encodeURIComponent(response.data.token)}` : '';
-          const userParam = response.data.user ? `user=${encodeURIComponent(JSON.stringify(response.data.user))}` : '';
-          const query = [tokenParam, userParam].filter(Boolean).join('&');
-          window.location.href = `http://localhost:3002${query ? '?' + query : ''}`;
+          let dashboardBase = process.env.REACT_APP_DASHBOARD_URL || 'http://localhost:3002';
+          if (!/^https?:\/\//i.test(dashboardBase)) {
+            dashboardBase = 'http://' + dashboardBase;
+          }
+          try {
+            const targetUrl = new URL(dashboardBase);
+            if (code) {
+              targetUrl.searchParams.set('code', code);
+            }
+            window.location.href = targetUrl.toString();
+          } catch (e) {
+            window.location.href = code ? `${dashboardBase}?code=${encodeURIComponent(code)}` : dashboardBase;
+          }
         }, 1000);
       } else {
         setError(response.data.message || 'Login failed. Please check your credentials.');

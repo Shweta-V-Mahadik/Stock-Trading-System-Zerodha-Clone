@@ -1,10 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 import { Link } from "react-router-dom";
 
 const Menu = () => {
   const [selectedMenu, setSelectedMenu] = useState(0);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const updateUserState = () => {
+      try {
+        const stored = localStorage.getItem("user");
+        setUser(stored ? JSON.parse(stored) : null);
+      } catch (e) {
+        setUser(null);
+      }
+    };
+
+    window.addEventListener("user-updated", updateUserState);
+    window.addEventListener("storage", updateUserState);
+
+    return () => {
+      window.removeEventListener("user-updated", updateUserState);
+      window.removeEventListener("storage", updateUserState);
+    };
+  }, []);
 
   const handleMenuClick = (index) => {
     setSelectedMenu(index);
@@ -93,24 +120,12 @@ const Menu = () => {
         <div className="profile" onClick={handleProfileClick}>
           <div className="avatar">
             {(() => {
-              try {
-                const u = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")) : null;
-                const name = u ? (u.username || u.name || "ZU") : "ZU";
-                return name.substring(0, 2).toUpperCase();
-              } catch (e) {
-                return "ZU";
-              }
+              const name = user ? (user.username || user.name || "ZU") : "ZU";
+              return name.substring(0, 2).toUpperCase();
             })()}
           </div>
           <p className="username">
-            {(() => {
-              try {
-                const u = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")) : null;
-                return u ? (u.username || u.name || "USER") : "USER";
-              } catch (e) {
-                return "USER";
-              }
-            })()}
+            {user ? (user.username || user.name || "USER") : "USER"}
           </p>
         </div>
       </div>
