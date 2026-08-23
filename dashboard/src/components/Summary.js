@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../services/api";
 
 const Summary = () => {
   const [username, setUsername] = useState(() => {
@@ -41,7 +41,7 @@ const Summary = () => {
       const token = localStorage.getItem("token");
       if (!token) return;
       try {
-        const res = await axios.get("http://localhost:3003/me", {
+        const res = await api.get("/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.data && res.data.user && res.data.user.username) {

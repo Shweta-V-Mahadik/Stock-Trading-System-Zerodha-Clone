@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../services/api';
 
 function Login() {
   const [formData, setFormData] = useState({
@@ -50,7 +50,7 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:3003/login', {
+      const response = await api.post('/login', {
         email: formData.email.trim(),
         password: formData.password,
       });
