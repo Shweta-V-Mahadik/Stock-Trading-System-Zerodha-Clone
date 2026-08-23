@@ -79,9 +79,13 @@ function Login() {
         }
 
         setTimeout(() => {
-          let dashboardBase = process.env.REACT_APP_DASHBOARD_URL || 'http://localhost:3002';
+          let dashboardBase = (process.env.REACT_APP_DASHBOARD_URL || 'http://localhost:3002').trim();
           if (!/^https?:\/\//i.test(dashboardBase)) {
-            dashboardBase = 'http://' + dashboardBase;
+            if (dashboardBase.includes('localhost') || dashboardBase.includes('127.0.0.1')) {
+              dashboardBase = 'http://' + dashboardBase;
+            } else {
+              dashboardBase = 'https://' + dashboardBase;
+            }
           }
           try {
             const targetUrl = new URL(dashboardBase);
@@ -90,7 +94,8 @@ function Login() {
             }
             window.location.href = targetUrl.toString();
           } catch (e) {
-            window.location.href = code ? `${dashboardBase}?code=${encodeURIComponent(code)}` : dashboardBase;
+            const sep = dashboardBase.includes('?') ? '&' : '?';
+            window.location.href = code ? `${dashboardBase}${sep}code=${encodeURIComponent(code)}` : dashboardBase;
           }
         }, 1000);
       } else {
